@@ -1,0 +1,80 @@
+service: user-service
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: dev
+  region: us-east-1
+
+  environment:
+    CANDIDATE_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+    CANDIDATE_EMAIL_TABLE: "candidate-email-${opt:stage, self:provider.stage}"
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:DeleteItem
+      Resource: "*"
+
+  
+functions:
+  userSubmission:
+    handler: api/user.submit
+    memorySize: 128
+    description: Submit user information and starts interview process.
+    events:
+      - http: 
+          path: users
+          method: post
+  listUser:
+    handler: api/user.list
+    memorySize: 128
+    description: List all User
+    events:
+      - http: 
+          path: users
+          method: get
+  userDetails:
+    handler: api/user.get
+    events:
+      - http:
+          path: users/{id}
+          method: get
+  updateUser:
+    handler: api/user.updateItem
+    events:
+      - http:
+          path: users/{id}
+          method: patch
+  deleteUser:
+    handler: api/user.delete
+    events:
+      - http:
+          path: users/{id}
+          method: delete
+          
+resources:
+    Resources:
+      CandidatesDynamoDbTable:
+        Type: 'AWS::DynamoDB::Table'
+        DeletionPolicy: Retain
+        Properties:
+          AttributeDefinitions:
+            -
+              AttributeName: "id"
+              AttributeType: "S"   
+          KeySchema:
+            -
+              AttributeName: "id"
+              KeyType: "HASH"
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+          StreamSpecification:
+            StreamViewType: "NEW_AND_OLD_IMAGES"
+          TableName: ${self:provider.environment.CANDIDATE_TABLE}
